@@ -2,6 +2,8 @@ site_name: Multi-Tenant Architecture
 site_description: Multi-tenant architecture proposal for Parttime / Zerotech
 site_url: https://zerotechmn.github.io/multi-tenant-architecture/
 
+toc_depth: 2
+
 repo_name: zerotechmn/multi-tenant-architecture
 repo_url: https://github.com/zerotechmn/multi-tenant-architecture
 
@@ -33,6 +35,7 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+      toc_depth: 2
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
