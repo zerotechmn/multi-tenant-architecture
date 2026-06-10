@@ -10,7 +10,10 @@ After GitHub Pages is enabled, the docs are published at:
 
 ## Edit the docs
 
-Source file: [`docs/index.md`](docs/index.md)
+Source files:
+
+- [`docs/index.md`](docs/index.md) — main architecture doc
+- [`docs/where-we-are-today.md`](docs/where-we-are-today.md) — current-state baseline
 
 ## Preview locally
 

@@ -7,13 +7,12 @@
 1. [What is multi-tenant architecture?](#1-what-is-multi-tenant-architecture)
 2. [Why we need it — business and technical benefits](#2-why-we-need-it)
 3. [How it is typically implemented](#3-how-multi-tenancy-is-typically-implemented)
-4. [Where we are today](#4-where-we-are-today)
-5. [Our proposed approach](#5-our-proposed-approach)
-6. [Technology stack](#6-technology-stack)
-7. [Authentication and tenant isolation](#7-authentication-and-tenant-isolation)
-8. [Persistence-layer isolation — `@Filter` vs Specifications vs RLS](#8-persistence-layer-isolation-filter-vs-specifications-vs-rls)
-9. [Key considerations and challenges](#9-key-considerations-and-challenges)
-10. [Proposed roadmap](#10-proposed-roadmap)
+4. [Our proposed approach](#5-our-proposed-approach)
+5. [Technology stack](#6-technology-stack)
+6. [Authentication and tenant isolation](#7-authentication-and-tenant-isolation)
+7. [Persistence-layer isolation — `@Filter` vs Specifications vs RLS](#8-persistence-layer-isolation-filter-vs-specifications-vs-rls)
+8. [Key considerations and challenges](#9-key-considerations-and-challenges)
+9. [Proposed roadmap](#10-proposed-roadmap)
 
 ---
 
@@ -127,47 +126,7 @@ Two common patterns with Keycloak:
 
 ---
 
-## 4. Where We Are Today
-
-### Current architecture (honest baseline)
-
-**What we have:**
-
-- Spring Boot microservices: `common`, `job`, `notification`, `log`, `apigw`
-- PostgreSQL — separate databases per service (`common`, `job`, `notification`, `log`), shared schema
-- **Organization → Branch → Employee** business hierarchy
-- Custom JWT auth (HS256, issued by `common`)
-- Organization selected in HQ dashboard (client-side, localStorage)
-- Application-level authorization via `AuthorizationService` (ADMIN, OWNER, MANAGER, etc.)
-
-**Partial tenant pattern already exists:**
-
-- `document-builder` (NestJS) requires a `tenant_alias` header and filters templates by tenant
-- `job` service passes organization ID as `tenant_alias` when generating contracts
-
-**What we do not have yet:**
-
-- Platform-wide tenant context in tokens
-- Systematic row-level isolation across all services
-- Keycloak in production (prototypes exist: KC 20 Docker, React demo)
-- Tenant propagation beyond document-builder
-
-```mermaid
-flowchart TB
-    subgraph today [Current State]
-        User[User logs in]
-        JWT[Custom JWT - no tenant claim]
-        UI[HQ Dashboard selects Organization]
-        API[API calls - org ID in URL/body]
-        AuthZ[Per-endpoint AuthorizationService checks]
-    end
-
-    User --> JWT --> UI --> API --> AuthZ
-```
-
-
-
-**Key message for leadership:** We support multiple organizations today at the **business level**, but not yet at the **platform architecture level**. That gap is what this initiative closes.
+**Next:** [Where we are today](where-we-are-today.md) — honest baseline of our current platform.
 
 ---
 
