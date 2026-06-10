@@ -1,0 +1,43 @@
+site_name: Multi-Tenant Architecture
+site_description: Multi-tenant architecture proposal for Parttime / Zerotech
+site_url: https://zerotechmn.github.io/multi-tenant-architecture/
+
+repo_name: zerotechmn/multi-tenant-architecture
+repo_url: https://github.com/zerotechmn/multi-tenant-architecture
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - toc.integrate
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+markdown_extensions:
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
