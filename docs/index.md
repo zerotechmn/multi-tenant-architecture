@@ -1,80 +1,118 @@
 # Multi-Tenant Architecture
 
----
+<p class="doc-lead">One platform, many customers — with strong separation between them. A progressive hardening initiative to make tenant isolation a <strong>platform guarantee</strong>, not an application convention.</p>
 
-**Agenda**
+<div class="doc-summary" markdown="1">
+<div class="doc-summary__item" markdown="1">
+<span class="doc-summary__label">Problem</span>
+<p class="doc-summary__text">Multiple organizations supported, but no platform-wide tenant isolation or modern IAM.</p>
+</div>
+<div class="doc-summary__item" markdown="1">
+<span class="doc-summary__label">Solution</span>
+<p class="doc-summary__text">Organization as tenant · Keycloak identity · <code>tenant_id</code> enforced on every request.</p>
+</div>
+<div class="doc-summary__item" markdown="1">
+<span class="doc-summary__label">Outcome</span>
+<p class="doc-summary__text">True SaaS — faster onboarding, lower cost per customer, enterprise-ready.</p>
+</div>
+</div>
 
-1. [What is multi-tenant architecture?](#1-what-is-multi-tenant-architecture)
-2. [Why we need it — business and technical benefits](#2-why-we-need-it)
-3. [How it is typically implemented](#3-how-multi-tenancy-is-typically-implemented)
-4. [Our proposed approach](#5-our-proposed-approach)
-5. [Technology stack](#6-technology-stack)
-6. [Authentication and tenant isolation](#7-authentication-and-tenant-isolation)
-7. [Persistence-layer isolation — `@Filter` vs Specifications](#8-persistence-layer-isolation-filter-vs-specifications)
-8. [Key considerations and challenges](#9-key-considerations-and-challenges)
-9. [Proposed roadmap](#10-proposed-roadmap)
+<div class="grid cards" markdown="1">
+
+-   :material-lightbulb-on:{ .lg .middle } **[What & why](#1-what-is-multi-tenant-architecture)**
+
+    ---
+
+    Definitions, business case, and technical benefits
+
+-   :material-sitemap:{ .lg .middle } **[How it's built](#3-how-multi-tenancy-is-typically-implemented)**
+
+    ---
+
+    Isolation models and IAM patterns
+
+-   :material-rocket-launch:{ .lg .middle } **[Our approach](#5-our-proposed-approach)**
+
+    ---
+
+    Target architecture and phased migration
+
+-   :material-shield-lock:{ .lg .middle } **[Auth & isolation](#7-authentication-and-tenant-isolation)**
+
+    ---
+
+    OIDC flow, tokens, and defense in depth
+
+-   :material-database:{ .lg .middle } **[Persistence](#8-persistence-layer-isolation-filter-vs-specifications)**
+
+    ---
+
+    `@Filter` vs Spring Data Specifications
+
+-   :material-map-clock:{ .lg .middle } **[Roadmap](#10-proposed-roadmap)**
+
+    ---
+
+    Quarterly milestones and success metrics
+
+</div>
 
 ---
 
 ## 1. What Is Multi-Tenant Architecture?
 
-### Simple definition
+=== "Leadership"
 
-**One platform, many customers — with strong separation between them.**
+    **One platform, many customers — with strong separation between them.**
 
-Multi-tenant architecture means a **single deployed application** serves **multiple independent customers** (tenants). Each tenant's data, configuration, and users are isolated from others, while the platform shares the same infrastructure, codebase, and operations.
+    A **single deployed application** serves **multiple independent customers** (tenants). Each tenant's data, configuration, and users stay isolated while sharing infrastructure, codebase, and operations.
 
-**Analogy:** One apartment building (platform), many separate units (tenants). Tenants share the building's plumbing and security, but each unit has its own lock and private space.
+    !!! quote "Analogy"
+        One apartment building (platform), many separate units (tenants). Shared plumbing and security; each unit has its own lock and private space.
 
-**In our context:** A tenant maps naturally to an **Organization** — the company that posts shifts, manages branches, runs payroll, and signs contracts.
+    **In our context:** A tenant maps to an **Organization** — the company that posts shifts, manages branches, runs payroll, and signs contracts.
 
-### Technical definition (for engineers)
+=== "Engineering"
 
+    | Concept | Meaning |
+    | ------- | ------- |
+    | **Tenant** | Isolated customer boundary (for us: `Organization`) |
+    | **Multi-tenancy** | One deployment serves many tenants with enforced isolation |
+    | **Tenant context** | Active tenant for a request (who owns this data?) |
+    | **Isolation** | Tenant A cannot read or modify Tenant B's data |
 
-| Concept            | Meaning                                                        |
-| ------------------ | -------------------------------------------------------------- |
-| **Tenant**         | An isolated customer boundary (for us: Organization)           |
-| **Multi-tenancy**  | One deployment serves many tenants with enforced isolation     |
-| **Tenant context** | The active tenant for a request (who owns this data?)          |
-| **Isolation**      | Guarantees that Tenant A cannot read or modify Tenant B's data |
-
-
-**Not the same as:**
-
-- **Multi-instance** — separate deployment per customer (higher cost, simpler isolation)
-- **Organization selection in UI only** — user picks an org in the dashboard, but the backend does not enforce tenant identity globally
+    !!! warning "Not the same as"
+        - **Multi-instance** — separate deployment per customer (higher cost, simpler isolation)
+        - **Org selection in UI only** — user picks an org in the dashboard; backend does not enforce tenant globally
 
 ---
 
 ## 2. Why We Need It
 
-### Business value (leadership)
+=== "Leadership"
 
+    | Benefit | What it means for Zerotech |
+    | ------- | -------------------------- |
+    | **Faster onboarding** | New organizations go live without new infrastructure |
+    | **Lower cost per customer** | Shared compute, DB, and ops instead of per-customer stacks |
+    | **Consistent product experience** | One codebase, one release cycle, one support model |
+    | **Scalable revenue** | Platform economics improve as tenant count grows |
+    | **Enterprise readiness** | Strong isolation and auditability for larger clients |
+    | **Compliance & trust** | Clear data boundaries support GDPR, SOC2, and SLAs |
 
-| Benefit                           | What it means for Zerotech                                     |
-| --------------------------------- | -------------------------------------------------------------- |
-| **Faster onboarding**             | New organizations go live without new infrastructure           |
-| **Lower cost per customer**       | Shared compute, DB, and ops instead of per-customer stacks     |
-| **Consistent product experience** | One codebase, one release cycle, one support model             |
-| **Scalable revenue**              | Platform economics improve as tenant count grows               |
-| **Enterprise readiness**          | Strong isolation and auditability expected by larger clients   |
-| **Compliance & trust**            | Clear data boundaries support GDPR, SOC2, and contractual SLAs |
+    !!! success "Bottom line"
+        Multi-tenancy turns our product from "software we run for each client" into a **true SaaS platform**.
 
+=== "Engineering"
 
-**Bottom line:** Multi-tenancy turns our product from "software we run for each client" into a **true SaaS platform**.
-
-### Technical value (engineering)
-
-
-| Benefit                              | Impact                                                                          |
-| ------------------------------------ | ------------------------------------------------------------------------------- |
-| **Centralized identity**             | One IdP (Keycloak) instead of custom JWT logic in every service                 |
-| **Consistent authorization**         | Tenant + role enforced uniformly, not per-endpoint                              |
-| **Reduced duplication**              | No copy-paste auth/isolation logic across `common`, `job`, `notification`, etc. |
-| **Safer APIs**                       | Tenant context in every request reduces cross-tenant data leaks                 |
-| **Easier observability**             | Logs, traces, and metrics tagged by tenant                                      |
-| **Foundation for white-label / SSO** | Per-tenant branding, federation, and policies become feasible                   |
-
+    | Benefit | Impact |
+    | ------- | ------ |
+    | **Centralized identity** | One IdP (Keycloak) instead of custom JWT in every service |
+    | **Consistent authorization** | Tenant + role enforced uniformly, not per-endpoint |
+    | **Reduced duplication** | No copy-paste auth logic across `common`, `job`, `notification`, etc. |
+    | **Safer APIs** | Tenant context in every request reduces cross-tenant leaks |
+    | **Easier observability** | Logs, traces, and metrics tagged by tenant |
+    | **White-label / SSO foundation** | Per-tenant branding, federation, and policies become feasible |
 
 ---
 
@@ -111,7 +149,8 @@ flowchart LR
 | **Shared DB + `tenant_id`** | Good (with discipline) | Lowest  | Lower             | High tenant count, shared product features   |
 
 
-**Industry default for SaaS:** Shared database with a `tenant_id` (or equivalent) on every tenant-owned row, enforced at the application and/or database layer
+!!! info "Industry default for SaaS"
+    Shared database with a `tenant_id` (or equivalent) on every tenant-owned row, enforced at the application layer.
 
 ### Identity models (IAM layer)
 
@@ -126,7 +165,11 @@ Two common patterns with Keycloak:
 
 ---
 
-**Next:** [Where we are today](where-we-are-today.md) — honest baseline of our current platform.
+<div class="doc-bridge" markdown="1">
+
+:material-map-marker-path: **Current state** — [Where we are today](where-we-are-today.md): honest baseline before the proposed changes below.
+
+</div>
 
 ---
 
@@ -134,9 +177,8 @@ Two common patterns with Keycloak:
 
 ### Recommended strategy
 
-**Recommended: Shared database + Organization as tenant + Keycloak with `tenant_id` claim**
-
-This fits our current data model and minimizes migration risk.
+!!! abstract "Recommended approach"
+    **Shared database + Organization as tenant + Keycloak with `tenant_id` claim** — fits our current data model and minimizes migration risk.
 
 
 | Layer                         | Approach                                                                                                                            |
@@ -149,11 +191,10 @@ This fits our current data model and minimizes migration risk.
 | **Cross-service propagation** | Gateway or shared library passes tenant context; document-builder pattern standardized                                              |
 
 
-**Why not realm-per-tenant (for now):**
-
-- Higher operational cost as tenant count grows
-- Our Organization model already provides the business boundary
-- Can revisit for enterprise/regulated tenants later as an optional tier
+!!! note "Why not realm-per-tenant (for now)?"
+    - Higher operational cost as tenant count grows
+    - Our Organization model already provides the business boundary
+    - Can revisit for enterprise/regulated tenants later as an optional tier
 
 ### Target architecture
 
@@ -196,12 +237,12 @@ flowchart TB
 
 
 
-**Principles:**
-
-1. **Authenticate once** — Keycloak issues tokens
-2. **Authorize everywhere** — every service validates JWT + tenant scope
-3. **Isolate by default** — no query without tenant filter
-4. **Defense in depth** — gateway validates; services re-validate
+<ul class="doc-principles" markdown="1">
+<li markdown="1"><strong>Authenticate once</strong>Keycloak issues tokens</li>
+<li markdown="1"><strong>Authorize everywhere</strong>Every service validates JWT + tenant scope</li>
+<li markdown="1"><strong>Isolate by default</strong>No query without tenant filter</li>
+<li markdown="1"><strong>Defense in depth</strong>Gateway validates; services re-validate</li>
+</ul>
 
 ### Phased migration (reduces risk)
 
@@ -277,9 +318,11 @@ sequenceDiagram
 
 
 
-**For leadership:** Users log in once; the system knows who they are and which organization they belong to — automatically, on every request.
+!!! success "Leadership"
+    Users log in once; the system knows who they are and which organization they belong to — automatically, on every request.
 
-**For engineers:** Replace custom JWT validation with OIDC JWKS validation and a `TenantContext` populated from JWT claims.
+!!! info "Engineering"
+    Replace custom JWT validation with OIDC JWKS validation and a `TenantContext` populated from JWT claims.
 
 ### What goes in the token?
 
@@ -295,16 +338,16 @@ sequenceDiagram
 
 Configured in Keycloak via **Protocol Mappers**.
 
-**Multi-org users (owners/managers with several organizations):**
-
-1. User authenticates
-2. If multiple orgs → org picker (existing HQ flow)
-3. Token/session updated with selected `tenant_id`
-4. All subsequent API calls scoped to that tenant
+!!! example "Multi-org users"
+    1. User authenticates
+    2. If multiple orgs → org picker (existing HQ flow)
+    3. Token/session updated with selected `tenant_id`
+    4. All subsequent API calls scoped to that tenant
 
 ### Tenant isolation layers
 
-Defense in depth — no single layer is enough:
+!!! warning "Defense in depth"
+    No single layer is enough:
 
 ```mermaid
 flowchart TB
@@ -370,71 +413,38 @@ Two common ways to enforce `organization_id` / `tenant_id` at the database acces
 | **Fit for Zerotech (Phase 3)**                                | **Recommended primary** for `job` / `common` JPA entities         | **Recommended** for complex/search queries            |
 
 
-**Recommendation for us:** Start with **`TenantContext` + Hibernate `@Filter`** on tenant-owned entities (denormalize `organization_id` on hot tables like `Shift` where the join chain is deep). Use **Specifications** for search/list endpoints that already compose dynamic criteria.
+!!! tip "Recommendation"
+    Start with **`TenantContext` + Hibernate `@Filter`** on tenant-owned entities (denormalize `organization_id` on hot tables like `Shift` where the join chain is deep). Use **Specifications** for search/list endpoints that already compose dynamic criteria.
 
 ---
 
 ### 1. Hibernate `@Filter`
 
-A session-scoped SQL fragment automatically appended to queries for annotated entities.
+Session-scoped SQL fragment appended to queries for annotated entities.
 
-**Entity example** (denormalized `organization_id` on `Shift` — avoids join in every query):
-
-```java
-@Entity
-@Table(name = "shift")
-@FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "organizationId", type = "uuid-char"))
-@Filter(name = "tenantFilter", condition = "organization_id = :organizationId")
-public class Shift {
-
-    @Id
-    private UUID id;
-
-    @Column(name = "organization_id", nullable = false, updatable = false)
-    private UUID organizationId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    private Branch branch;
-
-    // ...
-}
-```
-
-**Enable on every request** (after JWT → `TenantContext`):
-
-```java
-@Component
-public class TenantFilterInterceptor implements HandlerInterceptor {
-
-    private final EntityManager entityManager;
-
-    @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        UUID tenantId = TenantContext.requireOrganizationId();
-        Session session = entityManager.unwrap(Session.class);
-        session.enableFilter("tenantFilter")
-               .setParameter("organizationId", tenantId);
-        return true;
+???+ example "Code examples"
+    ```java
+    @Entity
+    @FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "organizationId", type = "uuid-char"))
+    @Filter(name = "tenantFilter", condition = "organization_id = :organizationId")
+    public class Shift {
+        @Column(name = "organization_id", nullable = false, updatable = false)
+        private UUID organizationId;
     }
-}
-```
+    ```
 
-**Set tenant on insert** (filter does not auto-populate new rows):
+    ```java
+    // Enable per request after JWT → TenantContext
+    session.enableFilter("tenantFilter").setParameter("organizationId", tenantId);
 
-```java
-@PrePersist
-void setTenant() {
-    if (organizationId == null) {
-        organizationId = TenantContext.requireOrganizationId();
+    // On insert — filter does not auto-populate rows
+    @PrePersist void setTenant() {
+        if (organizationId == null) organizationId = TenantContext.requireOrganizationId();
     }
-}
-```
 
-**Admin bypass:**
-
-```java
-session.disableFilter("tenantFilter"); // only for audited ADMIN paths
-```
+    // Admin bypass (audited paths only)
+    session.disableFilter("tenantFilter");
+    ```
 
 
 | Pros                                                           | Cons                                                                                 |
@@ -451,71 +461,26 @@ session.disableFilter("tenantFilter"); // only for audited ADMIN paths
 
 Composable `Predicate`s added to every repository call that uses them.
 
-**Tenant spec** (direct column or join chain):
-
-```java
-public final class TenantSpecs {
-
-    private TenantSpecs() {}
-
-    // Direct organization_id on entity
-    public static <T extends TenantOwned> Specification<T> forCurrentTenant() {
-        return (root, query, cb) ->
-            cb.equal(root.get("organizationId"), TenantContext.requireOrganizationId());
-    }
-
-    // Indirect: Shift → Branch → organization
+???+ example "Code examples"
+    ```java
+    // Tenant spec — direct column or join chain (Shift → Branch → Organization)
     public static Specification<Shift> shiftBelongsToCurrentTenant() {
-        return (root, query, cb) ->
-            cb.equal(
-                root.join("branch").get("organization").get("id"),
-                TenantContext.requireOrganizationId()
-            );
+        return (root, query, cb) -> cb.equal(
+            root.join("branch").get("organization").get("id"),
+            TenantContext.requireOrganizationId());
     }
-}
-```
 
-**Repository:**
+    // Service — always compose with tenant spec
+    return shiftRepository.findAll(tenantSpec.and(openShiftsSpec));
 
-```java
-public interface ShiftRepository extends JpaRepository<Shift, UUID>,
-                                         JpaSpecificationExecutor<Shift> {
-
-    // Safe — caller must pass tenant spec
-    List<Shift> findAll(Specification<Shift> spec);
-
-    // UNSAFE without spec — returns all tenants!
-    List<Shift> findByStatus(ShiftStatus status);
-}
-```
-
-**Service usage:**
-
-```java
-@Service
-public class ShiftService {
-
-    public List<Shift> listOpenShifts() {
-        Specification<Shift> tenant = TenantSpecs.shiftBelongsToCurrentTenant();
-        Specification<Shift> open = (root, q, cb) ->
-            cb.equal(root.get("status"), ShiftStatus.OPEN);
-        return shiftRepository.findAll(tenant.and(open));
-    }
-}
-```
-
-**Base repository pattern** (reduces "forgot the spec" risk):
-
-```java
-@NoRepositoryBean
-public interface TenantScopedRepository<T, ID> extends JpaRepository<T, ID>,
-                                                      JpaSpecificationExecutor<T> {
-
+    // Base repo — reduces "forgot the spec" risk
     default List<T> findAllForTenant(Specification<T> spec) {
         return findAll(TenantSpecs.forCurrentTenant().and(spec));
     }
-}
-```
+    ```
+
+    !!! danger "Unsafe pattern"
+        `findByStatus(status)` without a tenant spec returns **all tenants**.
 
 
 | Pros                                                       | Cons                                                                      |
@@ -553,32 +518,28 @@ flowchart LR
 
 ## 9. Key Considerations and Challenges
 
-### For leadership (risks and mitigations)
+=== "Leadership — risks & mitigations"
 
+    | Challenge | Business impact | Mitigation |
+    | --------- | --------------- | ---------- |
+    | **Migration from custom JWT** | Possible client downtime during auth cutover | Phased rollout; parallel auth period; feature flags |
+    | **Data leakage risk** | Reputational and legal damage | Tenant filters + security audit + penetration test |
+    | **Increased complexity** | Longer initial delivery | Phased roadmap; start with `job` + `common` |
+    | **Keycloak operations** | New infrastructure to run | Docker/K8s deployment; backup; monitoring |
+    | **Multi-org users** | UX friction if org selection breaks | Reuse existing org picker; persist in token |
 
-| Challenge                     | Business impact                              | Mitigation                                          |
-| ----------------------------- | -------------------------------------------- | --------------------------------------------------- |
-| **Migration from custom JWT** | Possible client downtime during auth cutover | Phased rollout; parallel auth period; feature flags |
-| **Data leakage risk**         | Reputational and legal damage                | Tenant filters + security audit + penetration test  |
-| **Increased complexity**      | Longer initial delivery                      | Phased roadmap; start with `job` + `common`         |
-| **Keycloak operations**       | New infrastructure to run                    | Docker/K8s deployment; backup; monitoring           |
-| **Multi-org users**           | UX friction if org selection breaks          | Reuse existing org picker; persist in token         |
+=== "Engineering — technical challenges"
 
-
-### For engineers (technical challenges)
-
-
-| Challenge                       | Detail                                        | Approach                                             |
-| ------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
-| **Public endpoints**            | Many `job` routes are currently `permitAll()` | Audit all endpoints; tenant-scope or authenticate    |
-| **Commented-out role matchers** | Spring Security config incomplete             | Re-enable with Keycloak role mapping                 |
-| **4 separate PostgreSQL DBs**   | Tenant context must propagate across services | Shared tenant library in `common` / `clients` module |
-| **Mobile clients**              | Must migrate from custom JWT to OIDC          | Mobile SDK update; refresh token handling            |
-| **Cross-service calls**         | Feign clients need tenant propagation         | Pass JWT or internal service token with tenant claim |
-| **Background jobs**             | No HTTP request context                       | Inject tenant from job payload or scheduler context  |
-| **Admin / cross-tenant ops**    | Platform admins need global access            | Separate `ADMIN` role bypass with audit trail        |
-| **Testing**                     | Must prove no cross-tenant leaks              | Integration tests with two tenants; negative tests   |
-
+    | Challenge | Detail | Approach |
+    | --------- | ------ | -------- |
+    | **Public endpoints** | Many `job` routes are `permitAll()` | Audit all endpoints; tenant-scope or authenticate |
+    | **Commented-out role matchers** | Spring Security config incomplete | Re-enable with Keycloak role mapping |
+    | **4 separate PostgreSQL DBs** | Tenant context must propagate across services | Shared tenant library in `common` / `clients` |
+    | **Mobile clients** | Must migrate from custom JWT to OIDC | Mobile SDK update; refresh token handling |
+    | **Cross-service calls** | Feign clients need tenant propagation | Pass JWT or internal service token with tenant claim |
+    | **Background jobs** | No HTTP request context | Inject tenant from job payload or scheduler context |
+    | **Admin / cross-tenant ops** | Platform admins need global access | Separate `ADMIN` role bypass with audit trail |
+    | **Testing** | Must prove no cross-tenant leaks | Integration tests with two tenants; negative tests |
 
 ### Decision summary
 
@@ -597,25 +558,33 @@ flowchart LR
 
 ## 10. Proposed Roadmap
 
-
-| Quarter | Milestone                                                                         |
-| ------- | --------------------------------------------------------------------------------- |
-| **Q1**  | Keycloak production deployment; realm/clients/roles; developer demo               |
-| **Q2**  | `common` + HQ dashboard OIDC migration; `tenant_id` in tokens                     |
-| **Q3**  | `job` service tenant enforcement; endpoint security audit                         |
-| **Q4**  | Mobile migration; notification + document-builder standardization; security audit |
-
+<div class="doc-roadmap" markdown="1">
+<div class="doc-roadmap__quarter" markdown="1">
+<strong>Q1</strong>
+<p>Keycloak production deployment; realm/clients/roles; developer demo</p>
+</div>
+<div class="doc-roadmap__quarter" markdown="1">
+<strong>Q2</strong>
+<p><code>common</code> + HQ dashboard OIDC migration; <code>tenant_id</code> in tokens</p>
+</div>
+<div class="doc-roadmap__quarter" markdown="1">
+<strong>Q3</strong>
+<p><code>job</code> service tenant enforcement; endpoint security audit</p>
+</div>
+<div class="doc-roadmap__quarter" markdown="1">
+<strong>Q4</strong>
+<p>Mobile migration; notification + document-builder standardization; security audit</p>
+</div>
+</div>
 
 *Adjust dates to your actual planning cycle.*
 
-**Success metrics:**
+### Success metrics
 
-- 100% of authenticated API calls carry validated `tenant_id`
-- Zero cross-tenant incidents in QA penetration tests
-- Custom JWT fully deprecated
-- New organization onboarding requires no engineering deployment
-
----
-
----
+<ul class="doc-metrics" markdown="1">
+<li markdown="1">100% of authenticated API calls carry validated <code>tenant_id</code></li>
+<li markdown="1">Zero cross-tenant incidents in QA penetration tests</li>
+<li markdown="1">Custom JWT fully deprecated</li>
+<li markdown="1">New organization onboarding requires no engineering deployment</li>
+</ul>
 

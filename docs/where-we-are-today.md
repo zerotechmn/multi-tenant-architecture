@@ -1,31 +1,16 @@
 # Where We Are Today
 
-[← Back to overview](index.md)
+<p class="doc-lead">An honest baseline of the Parttime platform before multi-tenant hardening. We support multiple organizations at the <strong>business level</strong> — not yet at the <strong>platform architecture level</strong>.</p>
+
+<div class="doc-bridge" markdown="1">
+
+:material-arrow-left: [Back to overview](index.md) · [Skip to proposed approach →](index.md#5-our-proposed-approach)
+
+</div>
 
 ---
 
-## Current architecture (honest baseline)
-
-**What we have:**
-
-- Spring Boot microservices: `common`, `job`, `notification`, `log`, `apigw`
-- PostgreSQL — separate databases per service (`common`, `job`, `notification`, `log`), shared schema
-- **Organization → Branch → Employee** business hierarchy
-- Custom JWT auth (HS256, issued by `common`)
-- Organization selected in HQ dashboard (client-side, localStorage)
-- Application-level authorization via `AuthorizationService` (ADMIN, OWNER, MANAGER, etc.)
-
-**Partial tenant pattern already exists:**
-
-- `document-builder` (NestJS) requires a `tenant_alias` header and filters templates by tenant
-- `job` service passes organization ID as `tenant_alias` when generating contracts
-
-**What we do not have yet:**
-
-- Platform-wide tenant context in tokens
-- Systematic row-level isolation across all services
-- Keycloak in production (prototypes exist: KC 20 Docker, React demo)
-- Tenant propagation beyond document-builder
+## Current architecture
 
 ```mermaid
 flowchart TB
@@ -40,8 +25,48 @@ flowchart TB
     User --> JWT --> UI --> API --> AuthZ
 ```
 
-**Key message for leadership:** We support multiple organizations today at the **business level**, but not yet at the **platform architecture level**. That gap is what this initiative closes.
+<div class="doc-status-grid" markdown="1">
 
----
+<div class="doc-status-card doc-status-card--have" markdown="1">
 
-[Next: Our proposed approach →](index.md#5-our-proposed-approach)
+### What we have
+
+- Spring Boot microservices: `common`, `job`, `notification`, `log`, `apigw`
+- PostgreSQL — separate DB per service, shared schema
+- **Organization → Branch → Employee** hierarchy
+- Custom JWT auth (HS256, issued by `common`)
+- Org selected in HQ dashboard (client-side, localStorage)
+- `AuthorizationService` roles (ADMIN, OWNER, MANAGER, etc.)
+
+</div>
+
+<div class="doc-status-card doc-status-card--partial" markdown="1">
+
+### Partial patterns
+
+- `document-builder` requires `tenant_alias` header; filters templates by tenant
+- `job` passes organization ID as `tenant_alias` for contract generation
+
+</div>
+
+<div class="doc-status-card doc-status-card--gap" markdown="1">
+
+### Gaps
+
+- No platform-wide tenant context in tokens
+- No systematic row-level isolation across services
+- Keycloak not in production (KC 20 Docker + React demo only)
+- Tenant propagation beyond document-builder
+
+</div>
+
+</div>
+
+!!! success "Key message for leadership"
+    The org picker in HQ is good UX. The gap is making that choice **authoritative in the security token** and enforced in every service.
+
+<div class="doc-bridge" markdown="1">
+
+:material-arrow-right: **Next** — [Our proposed approach](index.md#5-our-proposed-approach)
+
+</div>
