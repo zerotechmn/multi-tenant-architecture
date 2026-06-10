@@ -389,27 +389,28 @@ Three common ways to enforce `organization_id` / `tenant_id` at the database acc
 #### Quick comparison
 
 
-| Approach | Where it runs | Applies to | Best for |
-| -------- | ------------- | ---------- | -------- |
-| **Hibernate `@Filter`** | ORM (Hibernate Session) | Entities annotated with `@Filter` | Automatic scoping on all JPQL/Criteria/entity loads |
-| **Spring Data Specifications** | Repository layer | Queries built through `Specification` API | Explicit, composable filters; good testability |
-| **PostgreSQL RLS** | Database engine | All SQL touching protected tables | Last line of defense; blocks raw SQL and bugs |
+| Approach                       | Where it runs           | Applies to                                | Best for                                            |
+| ------------------------------ | ----------------------- | ----------------------------------------- | --------------------------------------------------- |
+| **Hibernate `@Filter`**        | ORM (Hibernate Session) | Entities annotated with `@Filter`         | Automatic scoping on all JPQL/Criteria/entity loads |
+| **Spring Data Specifications** | Repository layer        | Queries built through `Specification` API | Explicit, composable filters; good testability      |
+| **PostgreSQL RLS**             | Database engine         | All SQL touching protected tables         | Last line of defense; blocks raw SQL and bugs       |
 
 
-| | Hibernate `@Filter` | Spring Data Specifications | PostgreSQL RLS |
-| - | ------------------- | -------------------------- | -------------- |
-| **Safety if dev forgets a WHERE** | High for annotated entities | Medium — only where spec is used | **Highest** — DB enforces regardless of caller |
-| **Native SQL / `@Query` bypass risk** | Yes — native queries ignore filters | Yes — raw `@Query` strings bypass specs | No — RLS applies to all connections |
-| **Admin / cross-tenant queries** | Disable filter per session | Omit spec in dedicated admin repos | `BYPASS RLS` role or separate DB user |
-| **Indirect tenant path** (e.g. Shift → Branch → Organization) | Awkward — filter on join columns or denormalize `organization_id` | Flexible — join in spec | Policy can use subquery or denormalized column |
-| **Performance** | Small overhead per query; filter param bound once per session | Depends on spec complexity | Policy evaluated per row; index `organization_id` |
-| **Migration effort** | Medium — annotate entities, enable filter on every request | Medium — refactor repos to use specs | Higher — SQL policies, session vars, ops setup |
-| **Works across 4 service DBs** | Per-service Java library | Per-service Java library | Per-database migration |
-| **Debugging** | "Why is this row missing?" → check if filter enabled | Clear — spec visible in code | `EXPLAIN` + policy names; connection must set tenant |
-| **Fit for Zerotech (Phase 3)** | **Recommended primary** for `job` / `common` JPA entities | **Recommended** for complex/search queries | **Phase 5 hardening** or regulated tenants |
+
+|                                                               | Hibernate `@Filter`                                               | Spring Data Specifications                 | PostgreSQL RLS                                       |
+| ------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| **Safety if dev forgets a WHERE**                             | High for annotated entities                                       | Medium — only where spec is used           | **Highest** — DB enforces regardless of caller       |
+| **Native SQL / `@Query` bypass risk**                         | Yes — native queries ignore filters                               | Yes — raw `@Query` strings bypass specs    | No — RLS applies to all connections                  |
+| **Admin / cross-tenant queries**                              | Disable filter per session                                        | Omit spec in dedicated admin repos         | `BYPASS RLS` role or separate DB user                |
+| **Indirect tenant path** (e.g. Shift → Branch → Organization) | Awkward — filter on join columns or denormalize `organization_id` | Flexible — join in spec                    | Policy can use subquery or denormalized column       |
+| **Performance**                                               | Small overhead per query; filter param bound once per session     | Depends on spec complexity                 | Policy evaluated per row; index `organization_id`    |
+| **Migration effort**                                          | Medium — annotate entities, enable filter on every request        | Medium — refactor repos to use specs       | Higher — SQL policies, session vars, ops setup       |
+| **Works across 4 service DBs**                                | Per-service Java library                                          | Per-service Java library                   | Per-database migration                               |
+| **Debugging**                                                 | "Why is this row missing?" → check if filter enabled              | Clear — spec visible in code               | `EXPLAIN` + policy names; connection must set tenant |
+| **Fit for Zerotech (Phase 3)**                                | **Recommended primary** for `job` / `common` JPA entities         | **Recommended** for complex/search queries | **Phase 5 hardening** or regulated tenants           |
 
 
-**Recommendation for us:** Start with **`TenantContext` + Hibernate `@Filter`** on tenant-owned entities (denormalize `organization_id` on hot tables like `Shift` where the join chain is deep). Use **Specifications** for search/list endpoints that already compose dynamic criteria. Add **RLS** on the highest-risk tables once app-layer enforcement is stable.
+**Recommendation for us:** Start with `**TenantContext` + Hibernate `@Filter`** on tenant-owned entities (denormalize `organization_id` on hot tables like `Shift` where the join chain is deep). Use **Specifications** for search/list endpoints that already compose dynamic criteria. Add **RLS** on the highest-risk tables once app-layer enforcement is stable.
 
 ---
 
@@ -475,12 +476,13 @@ void setTenant() {
 session.disableFilter("tenantFilter"); // only for audited ADMIN paths
 ```
 
-| Pros | Cons |
-| ---- | ---- |
-| Transparent — `findById`, lazy loads, and JPQL all scoped | **Native SQL** and some bulk operations bypass filters |
-| One annotation per entity; hard to forget in standard JPA code | Indirect paths (Shift → Branch → org) need denormalized column or custom condition |
+
+| Pros                                                           | Cons                                                                                 |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Transparent — `findById`, lazy loads, and JPQL all scoped      | **Native SQL** and some bulk operations bypass filters                               |
+| One annotation per entity; hard to forget in standard JPA code | Indirect paths (Shift → Branch → org) need denormalized column or custom condition   |
 | Filter disabled/enabled per session — clean admin escape hatch | Must enable filter on **every** request thread (including async — propagate context) |
-| Works with existing repositories without rewriting queries | Spring Boot 2.5 / Hibernate 5.x — test filter activation in integration tests |
+| Works with existing repositories without rewriting queries     | Spring Boot 2.5 / Hibernate 5.x — test filter activation in integration tests        |
 
 
 ---
@@ -555,12 +557,13 @@ public interface TenantScopedRepository<T, ID> extends JpaRepository<T, ID>,
 }
 ```
 
-| Pros | Cons |
-| ---- | ---- |
-| Explicit and readable in code reviews | Easy to call `findByXxx()` without a spec — **no compile-time guarantee** |
-| Great for dynamic search (status + date + branch + tenant) | Every query path must be audited |
-| Easy to unit test predicates in isolation | Join-chain specs can be slower than denormalized `organization_id` |
-| No Hibernate-specific APIs — portable JPA | Does not protect native `@Query` unless you add tenant to the SQL string |
+
+| Pros                                                       | Cons                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Explicit and readable in code reviews                      | Easy to call `findByXxx()` without a spec — **no compile-time guarantee** |
+| Great for dynamic search (status + date + branch + tenant) | Every query path must be audited                                          |
+| Easy to unit test predicates in isolation                  | Join-chain specs can be slower than denormalized `organization_id`        |
+| No Hibernate-specific APIs — portable JPA                  | Does not protect native `@Query` unless you add tenant to the SQL string  |
 
 
 ---
@@ -615,19 +618,19 @@ CREATE ROLE parttime_admin BYPASSRLS;
 -- Use only for migrations, support tooling, and audited break-glass access
 ```
 
-| Pros | Cons |
-| ---- | ---- |
-| **Strongest guarantee** — bugs in Java cannot leak cross-tenant data | Must set session variable on **every** DB connection / transaction |
-| Protects ad-hoc SQL, BI tools, and future services | **4 separate PostgreSQL DBs** — policies duplicated per database |
-| `FORCE ROW LEVEL SECURITY` closes even superuser-style table-owner gaps | Join-heavy policies are harder to write and tune than `organization_id = ?` |
-| Auditable policies in version-controlled migrations (Flyway/Liquibase) | Pooling misconfiguration (stale tenant on connection) is catastrophic — test thoroughly |
-| Complements app layer — not a replacement for JWT validation | Background jobs and Feign-triggered work must set tenant in DB session too |
+
+| Pros                                                                    | Cons                                                                                    |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Strongest guarantee** — bugs in Java cannot leak cross-tenant data    | Must set session variable on **every** DB connection / transaction                      |
+| Protects ad-hoc SQL, BI tools, and future services                      | **4 separate PostgreSQL DBs** — policies duplicated per database                        |
+| `FORCE ROW LEVEL SECURITY` closes even superuser-style table-owner gaps | Join-heavy policies are harder to write and tune than `organization_id = ?`             |
+| Auditable policies in version-controlled migrations (Flyway/Liquibase)  | Pooling misconfiguration (stale tenant on connection) is catastrophic — test thoroughly |
+| Complements app layer — not a replacement for JWT validation            | Background jobs and Feign-triggered work must set tenant in DB session too              |
 
 
 ---
 
 #### Combined approach (recommended roadmap)
-
 
 ```mermaid
 flowchart LR
@@ -640,12 +643,15 @@ flowchart LR
     RLS --> DB
 ```
 
-| Phase | Action |
-| ----- | ------ |
-| **Phase 3** | `TenantContext` filter + `@Filter` on core entities; denormalize `organization_id` where needed |
-| **Phase 3** | Migrate dynamic list/search endpoints to `Specification.and(tenantSpec)` |
+
+
+
+| Phase       | Action                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------ |
+| **Phase 3** | `TenantContext` filter + `@Filter` on core entities; denormalize `organization_id` where needed        |
+| **Phase 3** | Migrate dynamic list/search endpoints to `Specification.and(tenantSpec)`                               |
 | **Phase 5** | Add RLS on highest-risk tables; integration tests that attempt cross-tenant reads without `set_config` |
-| **Ongoing** | Negative tests: user A's token must never return user B's `organization_id` rows |
+| **Ongoing** | Negative tests: user A's token must never return user B's `organization_id` rows                       |
 
 
 ---
@@ -682,14 +688,14 @@ flowchart LR
 ### Decision summary
 
 
-| Decision              | Recommendation          | Rationale                            |
-| --------------------- | ----------------------- | ------------------------------------ |
-| Tenant definition     | `Organization`          | Already in domain model              |
-| Data model            | Shared DB + FK chain    | Minimal schema migration             |
-| IAM                   | Keycloak, single realm  | Aligns with prototypes and PPT       |
-| Token strategy        | `tenant_id` claim       | Scales operationally                 |
+| Decision              | Recommendation                             | Rationale                                 |
+| --------------------- | ------------------------------------------ | ----------------------------------------- |
+| Tenant definition     | `Organization`                             | Already in domain model                   |
+| Data model            | Shared DB + FK chain                       | Minimal schema migration                  |
+| IAM                   | Keycloak, single realm                     | Aligns with prototypes and PPT            |
+| Token strategy        | `tenant_id` claim                          | Scales operationally                      |
 | Isolation enforcement | `@Filter` + Specifications; RLS in Phase 5 | App-layer first; DB policies as hardening |
-| Gateway role          | Validate JWT centrally  | Reduces duplicated logic             |
+| Gateway role          | Validate JWT centrally                     | Reduces duplicated logic                  |
 
 
 ---
@@ -716,19 +722,5 @@ flowchart LR
 
 ---
 
-## 10. Q&A
-
-### For leadership
-
-- What SLAs do enterprise customers expect for data isolation?
-- Do we need a premium tier with stronger isolation (schema-per-tenant)?
-- What compliance requirements apply (GDPR, local regulations)?
-
-### For engineers
-
-- [Hibernate `@Filter` vs Spring Data Specifications vs RLS](#persistence-layer-isolation-filter-vs-specifications-vs-rls) — see §7 above
-- BFF pattern for refresh tokens in SPAs?
-- How do we handle users who belong to multiple organizations simultaneously?
-- Keycloak HA topology in K8s?
-
 ---
+
