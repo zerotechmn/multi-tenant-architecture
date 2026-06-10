@@ -11,15 +11,15 @@
 5. [Our proposed approach](#5-our-proposed-approach)
 6. [Technology stack](#6-technology-stack)
 7. [Authentication and tenant isolation](#7-authentication-and-tenant-isolation)
-8. [Key considerations and challenges](#8-key-considerations-and-challenges)
-9. [Proposed roadmap](#9-proposed-roadmap)
-10. [Q&A](#10-qa)
+8. [Persistence-layer isolation — `@Filter` vs Specifications vs RLS](#8-persistence-layer-isolation-filter-vs-specifications-vs-rls)
+9. [Key considerations and challenges](#9-key-considerations-and-challenges)
+10. [Proposed roadmap](#10-proposed-roadmap)
 
 ---
 
 ## 1. What Is Multi-Tenant Architecture?
 
-### Simple definition (for leadership)
+### Simple definition
 
 **One platform, many customers — with strong separation between them.**
 
@@ -380,13 +380,15 @@ Tenant (= Organization)
               └── Shift, Salary, Contract, Requirements...
 ```
 
-Most tenant-owned data already chains to `Organization` via `Branch.organization_id`. The work is to **enforce** that chain on every code path, not to redesign the schema from scratch.
+Most tenant-owned data already chains to `Organization` via `Branch.organization_id`. The work is to **enforce** that chain on every code path, not to redesign the schema from scratch. See [§8](#8-persistence-layer-isolation-filter-vs-specifications-vs-rls) for how we enforce isolation at the persistence layer.
 
-### Persistence-layer isolation: `@Filter` vs Specifications vs RLS
+---
+
+## 8. Persistence-Layer Isolation: `@Filter` vs Specifications vs RLS
 
 Three common ways to enforce `organization_id` / `tenant_id` at the database access layer. They are **not mutually exclusive** — many teams use app-layer enforcement first, then add RLS as defense in depth.
 
-#### Quick comparison
+### Quick comparison
 
 
 | Approach                       | Where it runs           | Applies to                                | Best for                                            |
@@ -410,11 +412,11 @@ Three common ways to enforce `organization_id` / `tenant_id` at the database acc
 | **Fit for Zerotech (Phase 3)**                                | **Recommended primary** for `job` / `common` JPA entities         | **Recommended** for complex/search queries | **Phase 5 hardening** or regulated tenants           |
 
 
-**Recommendation for us:** Start with `**TenantContext` + Hibernate `@Filter`** on tenant-owned entities (denormalize `organization_id` on hot tables like `Shift` where the join chain is deep). Use **Specifications** for search/list endpoints that already compose dynamic criteria. Add **RLS** on the highest-risk tables once app-layer enforcement is stable.
+**Recommendation for us:** Start with **`TenantContext` + Hibernate `@Filter`** on tenant-owned entities (denormalize `organization_id` on hot tables like `Shift` where the join chain is deep). Use **Specifications** for search/list endpoints that already compose dynamic criteria. Add **RLS** on the highest-risk tables once app-layer enforcement is stable.
 
 ---
 
-#### 1. Hibernate `@Filter`
+### 1. Hibernate `@Filter`
 
 A session-scoped SQL fragment automatically appended to queries for annotated entities.
 
@@ -487,7 +489,7 @@ session.disableFilter("tenantFilter"); // only for audited ADMIN paths
 
 ---
 
-#### 2. Spring Data JPA Specifications
+### 2. Spring Data JPA Specifications
 
 Composable `Predicate`s added to every repository call that uses them.
 
@@ -568,7 +570,7 @@ public interface TenantScopedRepository<T, ID> extends JpaRepository<T, ID>,
 
 ---
 
-#### 3. PostgreSQL Row-Level Security (RLS)
+### 3. PostgreSQL Row-Level Security (RLS)
 
 Policies enforced by PostgreSQL on every row access, regardless of whether the caller is JPA, JDBC, psql, or a reporting tool.
 
@@ -630,7 +632,7 @@ CREATE ROLE parttime_admin BYPASSRLS;
 
 ---
 
-#### Combined approach (recommended roadmap)
+### Combined approach (recommended roadmap)
 
 ```mermaid
 flowchart LR
@@ -656,7 +658,7 @@ flowchart LR
 
 ---
 
-## 8. Key Considerations and Challenges
+## 9. Key Considerations and Challenges
 
 ### For leadership (risks and mitigations)
 
@@ -700,7 +702,7 @@ flowchart LR
 
 ---
 
-## 9. Proposed Roadmap
+## 10. Proposed Roadmap
 
 
 | Quarter | Milestone                                                                         |
