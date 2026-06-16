@@ -82,6 +82,27 @@ http://localhost:8888/realms/demo/protocol/openid-connect/auth
 | **Admin API**      | Programmatic management                          |
 | **Federation/IdP** | LDAP, AD, Google, Microsoft                      |
 
+#### Federation / IdP — one system logging in with another system's user identity
+
+**How does federation work?**
+
+1. User clicks **"Login with Google"**
+2. Keycloak → redirects to Google
+3. Google → authenticates the user
+4. Google → returns identity to Keycloak
+5. Keycloak → issues a token to the app
+
+```mermaid
+flowchart LR
+    U[User] -->|1. Login with Google| KC[Keycloak]
+    KC -->|2. redirect| G[Google]
+    G -->|3. authenticate| G
+    G -->|4. identity| KC
+    KC -->|5. token| App[App]
+```
+
+→ The app only ever works with Keycloak's token; even if the external IdP changes, **the app code stays the same**.
+
 Each realm publishes a **discovery doc** → tells clients where the endpoints + **JWKS public keys** are. Services cache the JWKS and verify signatures **without calling Keycloak per request**.
 
 ### The login flow (Auth Code + PKCE)
@@ -297,26 +318,6 @@ flowchart LR
 | **Most endpoints**               | **A few sensitive ones**                 |
 
 > 🔑 Neither one does **tenant isolation**. The token says *who* + *which tenant*; the **persistence layer** ([overview §8](index.md#8-persistence-layer-isolation-filter-vs-specifications)) guarantees Org-456 only sees Org-456's rows.
-
----
-
-## 9. Our Choices
-
-> **Single realm + `tenant_id`, RBAC-first, isolation enforced in the data layer.**
-
-| Decision         | Choice                                              |
-| ---------------- | --------------------------------------------------- |
-| **Realm**        | One `parttime` + `tenant_id` claim                  |
-| **Frontend**     | Public clients + PKCE                                |
-| **Backend**      | Confidential clients + service accounts             |
-| **Roles**        | Realm roles `ADMIN`/`OWNER`/`MANAGER`/`EMPLOYEE`    |
-| **Tenant claim** | Reusable `tenant` client scope                       |
-| **Authorization**| RBAC default; fine-grained for sensitive actions    |
-| **Tokens**       | Short access, rotating refresh, validate access only |
-| **Isolation**    | Persistence layer, not just the token               |
-| **Enterprise**   | Per-org IdP brokering later (SSO)                   |
-
-Lines up with **Phase 1** of the [roadmap](index.md#5-our-proposed-approach): realm, clients, roles, and the `tenant_id` mapper.
 
 ---
 
