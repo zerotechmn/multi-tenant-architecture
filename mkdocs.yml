@@ -45,3 +45,4 @@ markdown_extensions:
 nav:
   - Overview: index.md
   - Where We Are Today: where-we-are-today.md
+  - Keycloak in Practice: keycloak.md
