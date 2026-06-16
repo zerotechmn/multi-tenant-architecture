@@ -317,8 +317,6 @@ flowchart LR
 | Want speed, no round-trip        | Can absorb a decision call               |
 | **Most endpoints**               | **A few sensitive ones**                 |
 
-> 🔑 Neither one does **tenant isolation**. The token says *who* + *which tenant*; the **persistence layer** ([overview §8](index.md#8-persistence-layer-isolation-filter-vs-specifications)) guarantees Org-456 only sees Org-456's rows.
-
 ---
 
 [← Back to overview](index.md)
