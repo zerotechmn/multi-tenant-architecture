@@ -2,7 +2,7 @@
 
 [← Back to overview](index.md)
 
-> **A slide-style walkthrough of how Keycloak actually works** — in our frontend, our backend, and our multi-tenant model. For the high-level auth flow, see [overview §7](index.md#7-authentication-and-tenant-isolation).
+🔗 **Sample login URL:** <a href="http://localhost:8888/realms/demo/protocol/openid-connect/auth?client_id=talk-tech-client&response_type=code&scope=openid&redirect_uri=http://localhost:8888" target="_blank" rel="noopener">open the Keycloak sign-in flow</a>
 
 ---
 
@@ -10,13 +10,11 @@
 
 1. [What Keycloak is](#1-what-keycloak-is)
 2. [OAuth 2.0 & OIDC](#2-oauth-20-oidc)
-3. [One login URL](#3-one-login-url)
-4. [Architecture & auth flow](#4-architecture-auth-flow)
-5. [Frontend vs backend](#5-frontend-vs-backend)
-6. [Core concepts](#6-core-concepts)
-7. [The three tokens](#7-the-three-tokens)
-8. [RBAC vs fine-grained](#8-rbac-vs-fine-grained)
-9. [Our choices](#9-our-choices)
+3. [Architecture & auth flow](#3-architecture-auth-flow)
+4. [Core concepts](#4-core-concepts)
+5. [The three tokens](#5-the-three-tokens)
+6. [RBAC vs fine-grained](#6-rbac-vs-fine-grained)
+7. [Frontend vs backend](#7-frontend-vs-backend)
 
 ---
 
@@ -48,27 +46,11 @@ Speaks **OAuth 2.0 / OIDC** (+ SAML) → any standard client works the same way:
 | **Describes**    | permissions / scopes     | the user's identity           |
 | **Scope keyword**| (resource scopes)        | `openid`                      |
 
-Keycloak implements **both** — OIDC *is* OAuth 2.0 plus identity. The `scope=openid` in the login URL (next slide) is literally the switch that turns an OAuth flow into OIDC and gets you an ID token back.
+Keycloak implements **both** — OIDC *is* OAuth 2.0 plus identity. The `scope=openid` in the **sample login URL** at the top of this page is literally the switch that turns an OAuth flow into OIDC and gets you an ID token back.
 
 ---
 
-## 3. One Login URL
-
-> **Everything starts with one redirect.**
-
-```
-http://localhost:8888/realms/demo/protocol/openid-connect/auth
-  ?client_id=talk-tech-client
-  &response_type=code
-  &scope=openid
-  &redirect_uri=http://localhost:8888
-```
-
-→ User logs in → redirect to `redirect_uri?code=...` → app swaps the code for tokens. Production adds **PKCE** + `state` (next slide).
-
----
-
-## 4. Architecture & Auth Flow
+## 3. Architecture & Auth Flow
 
 > **Keycloak signs tokens; services verify them offline.**
 
@@ -129,51 +111,7 @@ sequenceDiagram
 
 ---
 
-## 5. Frontend vs Backend
-
-> **Frontend logs in & carries the token. Backend only validates it.**
-
-#### Frontend (React, mobile) — *public client*
-
-- Redirects to Keycloak at startup (`login-required` + PKCE)
-- Attaches `Bearer <token>` to every call; refreshes silently first
-- Tokens **in memory**, never `localStorage`
-- Logout via `keycloak.logout()` (ends SSO session)
-- `hasRealmRole()` only **hides buttons** — never security
-
-```ts
-api.interceptors.request.use(async (config) => {
-  await keycloak.updateToken(30);             // refresh if expiring soon
-  config.headers.Authorization = `Bearer ${keycloak.token}`;
-  return config;
-});
-```
-
-#### Backend (Spring Boot) — *resource server*
-
-One line validates every token (`iss`, `exp`, signature via JWKS):
-
-```yaml
-spring.security.oauth2.resourceserver.jwt.issuer-uri: https://auth.zerotech.mn/realms/parttime
-```
-
-Then: map `realm_access.roles` → authorities, enforce with `@PreAuthorize`, read `tenant_id` → `TenantContext`:
-
-```java
-@GetMapping @PreAuthorize("hasRole('MANAGER')")
-public List<ShiftDto> list(@AuthenticationPrincipal Jwt jwt) {
-  TenantContext.set(UUID.fromString(jwt.getClaim("tenant_id")));
-  return shiftService.listForCurrentTenant();
-}
-```
-
-> ⚠️ Client-side role checks are bypassable. **The backend re-checks every request.**
-
-Machine-to-machine calls (`job` → `notification`) use a **service account** (slide 6), not a user token.
-
----
-
-## 6. Core Concepts
+## 4. Core Concepts
 
 > **All framed in our domain: Organization = tenant.**
 
@@ -245,7 +183,7 @@ User signs in with Google/Microsoft → Keycloak still issues **our** realm toke
 
 ---
 
-## 7. The Three Tokens
+## 5. The Three Tokens
 
 > **Different jobs — mixing them up is a real vulnerability.**
 
@@ -283,7 +221,7 @@ sequenceDiagram
 
 ---
 
-## 8. RBAC vs Fine-Grained
+## 6. RBAC vs Fine-Grained
 
 > **RBAC by default. Fine-grained only where roles can't express the rule.**
 
@@ -316,6 +254,50 @@ flowchart LR
 | Coarse: admin / manager / employee | Context: owner, branch, time, status   |
 | Want speed, no round-trip        | Can absorb a decision call               |
 | **Most endpoints**               | **A few sensitive ones**                 |
+
+---
+
+## 7. Frontend vs Backend
+
+> **Frontend logs in & carries the token. Backend only validates it.**
+
+#### Frontend (React, mobile) — *public client*
+
+- Redirects to Keycloak at startup (`login-required` + PKCE)
+- Attaches `Bearer <token>` to every call; refreshes silently first
+- Tokens **in memory**, never `localStorage`
+- Logout via `keycloak.logout()` (ends SSO session)
+- `hasRealmRole()` only **hides buttons** — never security
+
+```ts
+api.interceptors.request.use(async (config) => {
+  await keycloak.updateToken(30);             // refresh if expiring soon
+  config.headers.Authorization = `Bearer ${keycloak.token}`;
+  return config;
+});
+```
+
+#### Backend (Spring Boot) — *resource server*
+
+One line validates every token (`iss`, `exp`, signature via JWKS):
+
+```yaml
+spring.security.oauth2.resourceserver.jwt.issuer-uri: https://auth.zerotech.mn/realms/parttime
+```
+
+Then: map `realm_access.roles` → authorities, enforce with `@PreAuthorize`, read `tenant_id` → `TenantContext`:
+
+```java
+@GetMapping @PreAuthorize("hasRole('MANAGER')")
+public List<ShiftDto> list(@AuthenticationPrincipal Jwt jwt) {
+  TenantContext.set(UUID.fromString(jwt.getClaim("tenant_id")));
+  return shiftService.listForCurrentTenant();
+}
+```
+
+> ⚠️ Client-side role checks are bypassable. **The backend re-checks every request.**
+
+Machine-to-machine calls (`job` → `notification`) use a **service account** (slide 4), not a user token.
 
 ---
 
